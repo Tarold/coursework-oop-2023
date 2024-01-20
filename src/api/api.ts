@@ -83,12 +83,7 @@ const waterIntakePoints: Record<string, WaterIntakePoint> = {
 };
 
 const initApp = async () => {
-  if (
-    !(JSON.parse(localStorage.getItem('waterData') || '{}') as Record<
-      string,
-      WaterIntakePoint
-    >)
-  )
+  if (!localStorage.getItem('waterData'))
     localStorage.setItem('waterData', JSON.stringify(waterIntakePoints));
 };
 const fetchData = async () => {
@@ -125,8 +120,44 @@ const setStatus = async (pointName: string, status: boolean) => {
   return status;
 };
 
+const addPoint = async (pointName: string) => {
+  const storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
+  const point = { name: pointName, status: false };
+  localStorage.setItem(
+    'waterData',
+    JSON.stringify({ ...storedData, [pointName]: point })
+  );
+  return point;
+};
+
+const renamePoint = async (oldPointName: string, newPointName: string) => {
+  const storedData = JSON.parse(
+    localStorage.getItem('waterData') || '{}'
+  ) as Record<string, WaterIntakePoint>;
+  const point = { ...storedData[oldPointName], name: newPointName };
+  const newStoredData = Object.fromEntries(
+    Object.entries(storedData).filter(([key]) => key !== oldPointName)
+  );
+  console.log('object :>> ', newStoredData);
+  localStorage.setItem(
+    'waterData',
+    JSON.stringify({ ...newStoredData, [newPointName]: point })
+  );
+  return point;
+};
+
+const deletePoint = async (pointName: string) => {
+  const storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
+  delete storedData[pointName];
+  localStorage.setItem('waterData', JSON.stringify(storedData));
+  return pointName;
+};
+
 export const api = {
   initApp,
+  addPoint,
+  renamePoint,
+  deletePoint,
   fetchData,
   getData,
   getStatus,

@@ -19,7 +19,6 @@ const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
   };
 
   useEffect(() => {
-    api.initApp();
     fetchWaterData();
     fetchIntakeStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -42,10 +41,10 @@ const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
         {isIntakeOpen ? 'Припинити водозабір' : 'Почати водозабір'}
       </button>
 
-      {waterData === undefined && <p>Завантаження даних...</p>}
-      {waterData !== undefined && isIntakeOpen === true && (
-        <p>Триває водозабір...</p>
+      {waterData === undefined && isIntakeOpen === false && (
+        <p>Данних ще немає...</p>
       )}
+      {isIntakeOpen === true && <p>Триває водозабір...</p>}
       {waterData !== undefined && isIntakeOpen === false && (
         <div className="visualization">
           <h2>Хімічні Показники</h2>
