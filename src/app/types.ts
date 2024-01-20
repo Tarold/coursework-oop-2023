@@ -27,3 +27,8 @@ export interface WaterData {
   physicalIndicators: PhysicalIndicators;
   biologicalIndicators: BiologicalIndicators;
 }
+export interface WaterIntakePoint {
+  name: string;
+  data?: WaterData;
+  status: boolean;
+}

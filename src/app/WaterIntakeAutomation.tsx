@@ -14,6 +14,7 @@ const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
 
   const fetchIntakeStatus = async () => {
     const data = await api.getStatus(pointName);
+    console.log('getStatus :>> ', data);
     setIsIntakeOpen(data);
   };
 

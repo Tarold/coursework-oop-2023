@@ -1,4 +1,4 @@
-import { WaterData } from '@/app/types';
+import { WaterIntakePoint } from '@/app/types';
 
 const getRandomNumber = (min: number, max: number): number => {
   return Math.random() * (max - min) + min;
@@ -63,11 +63,6 @@ const generateData = (pointName?: string) => {
   }
   return data;
 };
-interface WaterIntakePoint {
-  name: string;
-  data?: WaterData; // Include data directly within the point
-  status: boolean;
-}
 
 const waterIntakePoints: Record<string, WaterIntakePoint> = {
   'Point A': {
@@ -88,9 +83,23 @@ const waterIntakePoints: Record<string, WaterIntakePoint> = {
 };
 
 const initApp = async () => {
-  localStorage.setItem('waterData', JSON.stringify(waterIntakePoints));
+  if (
+    !(JSON.parse(localStorage.getItem('waterData') || '{}') as Record<
+      string,
+      WaterIntakePoint
+    >)
+  )
+    localStorage.setItem('waterData', JSON.stringify(waterIntakePoints));
 };
-
+const fetchData = async () => {
+  if (!localStorage.getItem('waterData')) {
+    await initApp();
+  }
+  return JSON.parse(localStorage.getItem('waterData') || '{}') as Record<
+    string,
+    WaterIntakePoint
+  >;
+};
 const getData = async (pointName: string) => {
   let storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
   if (!storedData[pointName]) {
@@ -118,6 +127,7 @@ const setStatus = async (pointName: string, status: boolean) => {
 
 export const api = {
   initApp,
+  fetchData,
   getData,
   getStatus,
   setStatus,
