@@ -3,8 +3,10 @@ import React, { useEffect, useState } from 'react';
 import Modal from 'react-modal';
 import { api } from '@/api/api';
 import WaterIntakeAutomation from './WaterIntakeAutomation';
-import { WaterIntakePoint } from './types';
+import { Schedule, WaterIntakePoint } from './types';
 import styled from 'styled-components';
+import { Schedules } from './Schedules';
+import { TimeInterval } from './Timer';
 const Container = styled.div`
   min-height: 100vh;
   display: flex;
@@ -138,6 +140,12 @@ const ModalContent = styled.div`
   text-align: center;
 `;
 
+const Content = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 25px;
+`;
+
 const WaterPointsPage = () => {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<WaterIntakePoint | null>(
@@ -145,6 +153,9 @@ const WaterPointsPage = () => {
   );
   const [waterPoints, setWaterPoints] =
     useState<Record<string, WaterIntakePoint>>();
+  const [schedulesPoints, setSchedules] = useState<Record<string, Schedule>>(
+    {}
+  );
   const [newPointName, setNewPointName] = useState('');
   const [renameName, setRenameName] = useState('');
   const [deleteName, setDeleteName] = useState('');
@@ -162,6 +173,10 @@ const WaterPointsPage = () => {
   const fetchWaterPoints = async () => {
     const points = await api.fetchData();
     setWaterPoints(points);
+  };
+  const fetchSchedules = async () => {
+    const points = await api.getSchedule();
+    setSchedules(points);
   };
   const handleAddPoint = () => {
     api.addPoint(newPointName);
@@ -181,102 +196,175 @@ const WaterPointsPage = () => {
     setModalIsOpen(false);
     fetchWaterPoints();
   };
+  const handleStartNow = (name: string) => {
+    api.setStatus(name, true);
+    api.setData(name, { date: new Date() });
+    fetchSchedules();
+  };
+  const handleChangeDate = (
+    pointName: string,
+    date?: Date,
+    interval?: number
+  ) => {
+    api.setSchedule(pointName, date, interval);
+    setSchedules((schedules) => {
+      if (schedules)
+        return {
+          ...schedules,
+          [pointName]: {
+            ...schedules[pointName],
+            ...(date ? { date } : {}),
+            ...(interval ? { interval } : {}),
+          },
+        };
+      return schedules;
+    });
+  };
+  const setDateSchedules = () => {
+    Object.values(schedulesPoints).forEach((schedule) => {
+      if (new Date(schedule.date) < new Date()) {
+        api.setSchedule(
+          schedule.name,
+          new Date(new Date().getTime() + firstPoint.interval)
+        );
+        api.setStatus(schedule.name, true);
+        fetchSchedules();
+        fetchWaterPoints();
+      }
+    });
+  };
 
   useEffect(() => {
     api.initApp();
     fetchWaterPoints();
+    fetchSchedules();
+    setDateSchedules();
   }, [modalIsOpen]);
+  const firstPoint = Object.values(schedulesPoints).reduce(function (
+    next,
+    now
+  ) {
+    return now.date < next.date ? now : next;
+  },
+  Object.values(schedulesPoints)[0]);
+
+  const handleEndTimer = () => {
+    api.setSchedule(
+      firstPoint.name,
+      new Date(new Date().getTime() + firstPoint.interval)
+    );
+    api.setStatus(firstPoint.name, true);
+    fetchSchedules();
+    fetchWaterPoints();
+  };
 
   return (
     <Container>
       <Heading>Water Points</Heading>
+      {firstPoint && (
+        <TimeInterval
+          time={firstPoint.date}
+          name={firstPoint.name}
+          onEndTimer={handleEndTimer}
+        ></TimeInterval>
+      )}
       {!waterPoints && <LoadingMessage>Loading...</LoadingMessage>}
       {waterPoints && (
         <>
-          <List>
-            {Object.keys(waterPoints).map((pointName) =>
-              deleteName === pointName ? (
-                <DeleteNotification key={pointName}>
-                  If you delete the data, <br />
-                  it will be impossible to restore them.
-                  <div>
-                    <Button onClick={() => handleDeletePoint()}>delete</Button>
-                    <Button onClick={() => setDeleteName('')}>cancel</Button>
-                  </div>
-                </DeleteNotification>
-              ) : (
-                <ListItem
-                  key={pointName}
-                  onClick={() => openModal(waterPoints[pointName])}
-                >
-                  {renameName === pointName ? (
-                    <EditContainer>
-                      <Input
-                        type="text"
-                        value={newPointName}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          setNewPointName(e.target.value);
-                        }}
-                      />
-                      <Button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          newPointName !== '' && handleRenamePoint();
+          <Content>
+            <List>
+              {Object.keys(waterPoints).map((pointName) =>
+                deleteName === pointName ? (
+                  <DeleteNotification key={pointName}>
+                    If you delete the data, <br />
+                    it will be impossible to restore them.
+                    <div>
+                      <Button onClick={() => handleDeletePoint()}>
+                        delete
+                      </Button>
+                      <Button onClick={() => setDeleteName('')}>cancel</Button>
+                    </div>
+                  </DeleteNotification>
+                ) : (
+                  <ListItem
+                    key={pointName}
+                    onClick={() => openModal(waterPoints[pointName])}
+                  >
+                    {renameName === pointName ? (
+                      <EditContainer>
+                        <Input
+                          type="text"
+                          value={newPointName}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            setNewPointName(e.target.value);
+                          }}
+                        />
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            newPointName !== '' && handleRenamePoint();
+                          }}
+                        >
+                          done
+                        </Button>
+                      </EditContainer>
+                    ) : (
+                      <Name>{pointName}</Name>
+                    )}
+                    <span style={{ marginLeft: '10px' }}>
+                      Status:{' '}
+                      <span
+                        style={{
+                          color: waterPoints[pointName].status
+                            ? 'lightgreen'
+                            : 'lightcoral',
+                          fontWeight: 'bold',
                         }}
                       >
-                        done
-                      </Button>
-                    </EditContainer>
-                  ) : (
-                    <Name>{pointName}</Name>
-                  )}
-                  <span style={{ marginLeft: '10px' }}>
-                    Status:{' '}
-                    <span
-                      style={{
-                        color: waterPoints[pointName].status
-                          ? 'lightgreen'
-                          : 'lightcoral',
-                        fontWeight: 'bold',
+                        ●
+                      </span>
+                    </span>
+                    <MarginButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (renameName === pointName) {
+                          setNewPointName('');
+                          setRenameName('');
+                          return;
+                        }
+                        setNewPointName(pointName);
+                        setRenameName(pointName);
                       }}
                     >
-                      ●
-                    </span>
-                  </span>
-                  <MarginButton
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (renameName === pointName) {
-                        setNewPointName('');
-                        setRenameName('');
-                        return;
-                      }
-                      setNewPointName(pointName);
-                      setRenameName(pointName);
-                    }}
-                  >
-                    edit
-                  </MarginButton>
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDeleteName(pointName);
-                    }}
-                  >
-                    delete
-                  </Button>
-                </ListItem>
-              )
+                      edit
+                    </MarginButton>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteName(pointName);
+                      }}
+                    >
+                      delete
+                    </Button>
+                  </ListItem>
+                )
+              )}
+              <AddPointListItem onClick={() => setModalIsOpen(true)}>
+                <span>Add new point</span>
+              </AddPointListItem>
+            </List>
+            {schedulesPoints && (
+              <Schedules
+                schedulePoints={schedulesPoints}
+                changeDate={handleChangeDate}
+                startNow={handleStartNow}
+              ></Schedules>
             )}
-            <AddPointListItem onClick={() => setModalIsOpen(true)}>
-              <span>Add new point</span>
-            </AddPointListItem>
-          </List>
-
+          </Content>
           <Modal
             isOpen={modalIsOpen}
             onRequestClose={closeModal}

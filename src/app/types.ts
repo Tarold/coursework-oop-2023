@@ -30,5 +30,8 @@ export interface WaterData {
 export interface WaterIntakePoint {
   name: string;
   data?: WaterData;
+  lastWaterIntake: Date | undefined;
   status: boolean;
 }
+
+export type Schedule = { name: string; date: Date; interval: number };
