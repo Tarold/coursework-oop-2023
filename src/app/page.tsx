@@ -220,12 +220,13 @@ const WaterPointsPage = () => {
       return schedules;
     });
   };
+
   const setDateSchedules = () => {
     Object.values(schedulesPoints).forEach((schedule) => {
       if (new Date(schedule.date) < new Date()) {
         api.setSchedule(
           schedule.name,
-          new Date(new Date().getTime() + firstPoint.interval)
+          new Date(new Date().getTime() + schedule.interval)
         );
         api.setStatus(schedule.name, true);
         fetchSchedules();
