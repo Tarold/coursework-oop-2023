@@ -6,6 +6,7 @@ import { WaterData } from './types';
 const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
   const [waterData, setWaterData] = useState<WaterData>();
   const [isIntakeOpen, setIsIntakeOpen] = useState(false);
+  const [isDone, setIsDone] = useState(true);
 
   const fetchWaterData = async () => {
     const data = await api.getData(pointName);
@@ -14,7 +15,6 @@ const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
 
   const fetchIntakeStatus = async () => {
     const data = await api.getStatus(pointName);
-    console.log('getStatus :>> ', data);
     setIsIntakeOpen(data);
   };
 
@@ -23,10 +23,29 @@ const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
     fetchIntakeStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const setNewTimeout = () => {
+      const timeoutId = setTimeout(() => {
+        setIsDone(true);
+      }, 5000);
 
+      return timeoutId;
+    };
+    if (isIntakeOpen) {
+      setIsDone(false);
+    }
+    if (!isIntakeOpen) {
+      setIsDone(false);
+      timer = setNewTimeout();
+    }
+
+    return () => {
+      clearTimeout(timer), setIsDone(true);
+    };
+  }, [isIntakeOpen]);
   const toggleIntake = async () => {
     const newIntakeStatus = !isIntakeOpen;
-    console.log('newIntakeStatus :>> ', newIntakeStatus);
     const data = await api.setStatus(pointName, newIntakeStatus);
     if (data === undefined) return;
     if (!data) fetchWaterData();
@@ -45,7 +64,10 @@ const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
         <p>Данних ще немає...</p>
       )}
       {isIntakeOpen === true && <p>Триває водозабір...</p>}
-      {waterData !== undefined && isIntakeOpen === false && (
+      {waterData !== undefined && isIntakeOpen === false && !isDone && (
+        <div>Оброблює данні</div>
+      )}
+      {waterData !== undefined && isIntakeOpen === false && isDone && (
         <div className="visualization">
           <h2>Хімічні Показники</h2>
           <ul>
