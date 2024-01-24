@@ -47,12 +47,12 @@ export const Schedules = ({
   changeDate,
   startNow,
 }: {
-  schedulePoints: Record<string, Schedule>;
+  schedulePoints: Schedule[];
   changeDate: (pointName: string, newDate?: Date, interval?: number) => void;
   startNow: (pointName: string) => void;
 }) => {
   const sortedSchedulePoints = () => {
-    return Object.values(schedulePoints).sort(
+    return schedulePoints.sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
   };
@@ -66,7 +66,7 @@ export const Schedules = ({
 
   return (
     <div>
-      {Object.values(sortedSchedulePoints()).map((point) => (
+      {sortedSchedulePoints().map((point) => (
         <ScheduleContainer key={point.name}>
           <PointName>{point.name}</PointName>
           <DateInfo>

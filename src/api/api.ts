@@ -1,4 +1,9 @@
-import { Schedule, WaterIntakePoint } from '@/app/types';
+import {
+  Schedule,
+  WaterIntakePoint,
+  WaterIntakePoints,
+  WaterPoint,
+} from '@/app/types';
 
 const getRandomNumber = (min: number, max: number): number => {
   return Math.random() * (max - min) + min;
@@ -27,16 +32,6 @@ const generateChemicalData = () => {
   };
 };
 
-const generatePhysicalData = () => {
-  return {
-    waterTemperature: getRandomNumber(5, 30),
-    waterTransparency: getRandomNumber(0.1, 1),
-    waterColor: getRandomString(),
-    waterOdor: getRandomString(),
-    waterTaste: getRandomString(),
-  };
-};
-
 const generateBiologicalData = () => {
   return {
     microorganismsContent: getRandomNumber(100, 1000),
@@ -45,187 +40,161 @@ const generateBiologicalData = () => {
   };
 };
 
-const generateData = (pointName?: string) => {
-  const data = {
+const generateData = () => {
+  return {
     chemicalIndicators: generateChemicalData(),
-    physicalIndicators: generatePhysicalData(),
     biologicalIndicators: generateBiologicalData(),
   };
-
-  if (pointName) {
-    const storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
-
-    const point = { ...storedData[pointName], data };
-    localStorage.setItem(
-      'waterData',
-      JSON.stringify({ ...storedData, [pointName]: point })
-    );
-  }
-  return data;
 };
 
-const waterIntakePoints: Record<string, WaterIntakePoint> = {
+const points: WaterIntakePoints = {
   'Point A': {
-    name: 'Point A',
-    data: generateData(),
-    lastWaterIntake: undefined,
-    status: true,
+    data: {
+      name: 'Point A',
+      data: generateData(),
+      status: true,
+    },
+    schedule: {
+      name: 'Point A',
+      date: new Date(new Date().getTime() + 1000 * 60 * 60 * 24),
+      interval: 1000 * 60 * 60 * 24,
+    },
   },
   'Point B': {
-    name: 'Point B',
-    data: generateData(),
-    lastWaterIntake: undefined,
-    status: true,
+    data: {
+      name: 'Point B',
+      data: generateData(),
+      status: true,
+    },
+    schedule: {
+      name: 'Point B',
+      date: new Date(new Date().getTime() + 1000 * 60 * 60 * 24),
+      interval: 1000 * 60 * 60 * 24,
+    },
   },
   'Point C': {
-    name: 'Point C',
-    data: generateData(),
-    lastWaterIntake: undefined,
-    status: true,
-  },
-};
-
-const schedulePoints: Record<string, Schedule> = {
-  'Point A': {
-    name: 'Point A',
-    date: new Date(),
-    interval: 1000 * 60 * 60 * 24,
-  },
-  'Point B': {
-    name: 'Point B',
-    date: new Date(),
-    interval: 1000 * 60 * 60 * 24,
-  },
-  'Point C': {
-    name: 'Point C',
-    date: new Date(),
-    interval: 1000 * 60 * 60 * 24,
+    data: {
+      name: 'Point C',
+      data: generateData(),
+      status: true,
+    },
+    schedule: {
+      name: 'Point C',
+      date: new Date(new Date().getTime() + 1000 * 60 * 60 * 24),
+      interval: 1000 * 60 * 60 * 24,
+    },
   },
 };
 
 const initApp = async () => {
-  if (!localStorage.getItem('waterData'))
-    localStorage.setItem('waterData', JSON.stringify(waterIntakePoints));
-  if (!localStorage.getItem('schedules'))
-    localStorage.setItem('schedules', JSON.stringify(schedulePoints));
-};
-
-const getSchedule = async () => {
-  if (!localStorage.getItem('schedules')) {
-    await initApp();
+  if (!localStorage.getItem('waterData')) {
+    localStorage.setItem('waterData', JSON.stringify(points));
   }
-  return JSON.parse(localStorage.getItem('schedules') || '{}') as Record<
-    string,
-    Schedule
-  >;
 };
 
-const setSchedule = async (name: string, date?: Date, interval?: number) => {
-  const schedules = await getSchedule();
-  const schedule = schedules[name];
-  if (schedule) {
-    const newSchedules = {
-      ...schedules,
-      [name]: {
-        ...schedule,
-        ...(date ? { date } : {}),
-        ...(interval ? { interval } : {}),
-      },
-    };
-    localStorage.setItem('schedules', JSON.stringify(newSchedules));
-    return { ...schedule, date, interval } as Schedule;
-  }
-  return;
-};
-
-const fetchData = async () => {
+const getPoints = async (): Promise<
+  Record<string, { data: WaterIntakePoint; schedule: Schedule }>
+> => {
   if (!localStorage.getItem('waterData')) {
     await initApp();
   }
-  return JSON.parse(localStorage.getItem('waterData') || '{}') as Record<
-    string,
-    WaterIntakePoint
-  >;
-};
-const getData = async (pointName: string) => {
-  let storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
-  if (!storedData[pointName]) {
-    return await generateData(pointName);
-  }
-  return storedData[pointName].data;
-};
-
-const getStatus = (pointName: string) => {
-  const storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
-  const point = storedData[pointName];
-  return point ? point.status : false;
-};
-
-const setStatus = async (pointName: string, status: boolean) => {
-  const storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
-  const point = { ...storedData[pointName], status };
-  localStorage.setItem(
-    'waterData',
-    JSON.stringify({ ...storedData, [pointName]: point })
-  );
-  if (status) generateData(pointName);
-  return status;
-};
-
-const setData = async (pointName: string, data: object) => {
-  const storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
-  const point = { ...storedData[pointName], ...data };
-  localStorage.setItem(
-    'waterData',
-    JSON.stringify({ ...storedData, [pointName]: point })
-  );
-
-  return point;
-};
-
-const addPoint = async (pointName: string) => {
-  const storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
-  const point = { name: pointName, status: false };
-  localStorage.setItem(
-    'waterData',
-    JSON.stringify({ ...storedData, [pointName]: point })
-  );
-  return point;
-};
-
-const renamePoint = async (oldPointName: string, newPointName: string) => {
   const storedData = JSON.parse(
     localStorage.getItem('waterData') || '{}'
-  ) as Record<string, WaterIntakePoint>;
-  const point = { ...storedData[oldPointName], name: newPointName };
-  const newStoredData = Object.fromEntries(
-    Object.entries(storedData).filter(([key]) => key !== oldPointName)
-  );
-  console.log('object :>> ', newStoredData);
-  localStorage.setItem(
-    'waterData',
-    JSON.stringify({ ...newStoredData, [newPointName]: point })
-  );
-  return point;
+  ) as Record<string, { data: WaterIntakePoint; schedule: Schedule }>;
+  return storedData;
 };
 
-const deletePoint = async (pointName: string) => {
-  const storedData = JSON.parse(localStorage.getItem('waterData') || '{}');
-  delete storedData[pointName];
-  localStorage.setItem('waterData', JSON.stringify(storedData));
-  return pointName;
+const updatePoint = async (
+  pointName: string,
+  updates: { data?: Partial<WaterIntakePoint>; schedule?: Partial<Schedule> }
+): Promise<void> => {
+  const storedData = JSON.parse(
+    localStorage.getItem('waterData') || '{}'
+  ) as Record<string, WaterIntakePoints>;
+
+  const point = storedData[pointName];
+
+  if (point) {
+    const newData = {
+      ...point.data,
+      ...(updates.data || {}),
+    } as WaterIntakePoint;
+    const newSchedule = {
+      ...point.schedule,
+      ...(updates.schedule || {}),
+    } as Schedule;
+
+    const newPoint: WaterPoint = {
+      data: newData,
+      schedule: newSchedule,
+    };
+
+    localStorage.setItem(
+      'waterData',
+      JSON.stringify({ ...storedData, [pointName]: newPoint })
+    );
+  }
+};
+
+const addPoint = async (
+  pointName: string
+): Promise<{ data: WaterIntakePoint; schedule: Schedule }> => {
+  const storedData = JSON.parse(
+    localStorage.getItem('waterData') || '{}'
+  ) as Record<string, { data: WaterIntakePoint; schedule: Schedule }>;
+  const newPoint = {
+    data: { name: pointName, status: false, data: generateData() },
+    schedule: {
+      name: pointName,
+      date: new Date(),
+      interval: 1000 * 60 * 60 * 24,
+    },
+  };
+  localStorage.setItem(
+    'waterData',
+    JSON.stringify({ ...storedData, [pointName]: newPoint })
+  );
+  return newPoint;
+};
+
+const renamePoint = async (
+  oldPointName: string,
+  newPointName: string
+): Promise<void> => {
+  const storedData = JSON.parse(
+    localStorage.getItem('waterData') || '{}'
+  ) as Record<string, { data: WaterIntakePoint; schedule: Schedule }>;
+  const point = storedData[oldPointName];
+  if (point) {
+    const newPoint = {
+      ...point,
+      data: { ...point.data, name: newPointName },
+      schedule: { ...point.schedule, name: newPointName },
+    };
+    const newStoredData = Object.fromEntries(
+      Object.entries(storedData).filter(([key]) => key !== oldPointName)
+    );
+    localStorage.setItem(
+      'waterData',
+      JSON.stringify({ ...newStoredData, [newPointName]: newPoint })
+    );
+  }
+};
+
+const deletePoint = async (pointName: string): Promise<void> => {
+  const storedData = JSON.parse(
+    localStorage.getItem('waterData') || '{}'
+  ) as Record<string, { data: WaterIntakePoint; schedule: Schedule }>;
+  const newStoredData = { ...storedData };
+  delete newStoredData[pointName];
+  localStorage.setItem('waterData', JSON.stringify(newStoredData));
 };
 
 export const api = {
   initApp,
-  getSchedule,
-  setSchedule,
-  setData,
+  getPoints,
+  updatePoint,
   addPoint,
   renamePoint,
   deletePoint,
-  fetchData,
-  getData,
-  getStatus,
-  setStatus,
 };

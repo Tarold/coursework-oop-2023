@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import Modal from 'react-modal';
 import { api } from '@/api/api';
 import WaterIntakeAutomation from './WaterIntakeAutomation';
-import { Schedule, WaterIntakePoint } from './types';
+import { WaterIntakePoints, WaterPoint } from './types';
 import styled from 'styled-components';
 import { Schedules } from './Schedules';
 import { TimeInterval } from './Timer';
@@ -148,19 +148,13 @@ const Content = styled.div`
 
 const WaterPointsPage = () => {
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const [selectedPoint, setSelectedPoint] = useState<WaterIntakePoint | null>(
-    null
-  );
-  const [waterPoints, setWaterPoints] =
-    useState<Record<string, WaterIntakePoint>>();
-  const [schedulesPoints, setSchedules] = useState<Record<string, Schedule>>(
-    {}
-  );
+  const [selectedPoint, setSelectedPoint] = useState<WaterPoint | null>(null);
+  const [waterPoints, setWaterPoints] = useState<WaterIntakePoints>({});
   const [newPointName, setNewPointName] = useState('');
   const [renameName, setRenameName] = useState('');
   const [deleteName, setDeleteName] = useState('');
 
-  const openModal = (point: WaterIntakePoint) => {
+  const openModal = (point: WaterPoint) => {
     setSelectedPoint(point);
     setModalIsOpen(true);
   };
@@ -170,14 +164,11 @@ const WaterPointsPage = () => {
     setSelectedPoint(null);
   };
 
-  const fetchWaterPoints = async () => {
-    const points = await api.fetchData();
+  const fetchWaterPoints = async (a: string) => {
+    const points = await api.getPoints();
     setWaterPoints(points);
   };
-  const fetchSchedules = async () => {
-    const points = await api.getSchedule();
-    setSchedules(points);
-  };
+
   const handleAddPoint = () => {
     api.addPoint(newPointName);
     setNewPointName('');
@@ -188,75 +179,67 @@ const WaterPointsPage = () => {
     setRenameName('');
     setNewPointName('');
     setModalIsOpen(false);
-    fetchWaterPoints();
+    fetchWaterPoints('1');
   };
   const handleDeletePoint = () => {
     api.deletePoint(deleteName);
     setDeleteName('');
     setModalIsOpen(false);
-    fetchWaterPoints();
+    fetchWaterPoints('2');
   };
   const handleStartNow = (name: string) => {
-    api.setStatus(name, true);
-    api.setData(name, { date: new Date() });
-    fetchSchedules();
+    api.updatePoint(name, {
+      data: { status: true },
+      schedule: { date: new Date() },
+    });
+    fetchWaterPoints('3');
   };
   const handleChangeDate = (
     pointName: string,
     date?: Date,
     interval?: number
   ) => {
-    api.setSchedule(pointName, date, interval);
-    setSchedules((schedules) => {
-      if (schedules)
-        return {
-          ...schedules,
-          [pointName]: {
-            ...schedules[pointName],
-            ...(date ? { date } : {}),
-            ...(interval ? { interval } : {}),
-          },
-        };
-      return schedules;
+    api.updatePoint(pointName, {
+      schedule: {
+        ...(date ? { date } : {}),
+        ...(interval ? { interval } : {}),
+      },
     });
+    fetchWaterPoints('4');
   };
 
   const setDateSchedules = () => {
-    Object.values(schedulesPoints).forEach((schedule) => {
-      if (new Date(schedule.date) < new Date()) {
-        api.setSchedule(
-          schedule.name,
-          new Date(new Date().getTime() + schedule.interval)
-        );
-        api.setStatus(schedule.name, true);
-        fetchSchedules();
-        fetchWaterPoints();
+    Object.values(waterPoints).forEach((waterPoint) => {
+      if (new Date(waterPoint.schedule.date) < new Date()) {
+        api.updatePoint(waterPoint.data.name, {
+          data: { status: true },
+          schedule: {
+            date: new Date(new Date().getTime() + waterPoint.schedule.interval),
+          },
+        });
+        fetchWaterPoints('5');
       }
     });
   };
 
   useEffect(() => {
     api.initApp();
-    fetchWaterPoints();
-    fetchSchedules();
+    fetchWaterPoints('6');
     setDateSchedules();
   }, [modalIsOpen]);
-  const firstPoint = Object.values(schedulesPoints).reduce(function (
-    next,
-    now
-  ) {
-    return now.date < next.date ? now : next;
-  },
-  Object.values(schedulesPoints)[0]);
+
+  const firstPoint = Object.values(waterPoints).reduce(function (next, now) {
+    return now.schedule.date < next.schedule.date ? now : next;
+  }, Object.values(waterPoints)[0]);
 
   const handleEndTimer = () => {
-    api.setSchedule(
-      firstPoint.name,
-      new Date(new Date().getTime() + firstPoint.interval)
-    );
-    api.setStatus(firstPoint.name, true);
-    fetchSchedules();
-    fetchWaterPoints();
+    api.updatePoint(firstPoint.data.name, {
+      data: { status: true },
+      schedule: {
+        date: new Date(new Date().getTime() + firstPoint.schedule.interval),
+      },
+    });
+    fetchWaterPoints('7');
   };
 
   return (
@@ -264,8 +247,8 @@ const WaterPointsPage = () => {
       <Heading>Water Points</Heading>
       {firstPoint && (
         <TimeInterval
-          time={firstPoint.date}
-          name={firstPoint.name}
+          time={firstPoint.schedule.date}
+          name={firstPoint.schedule.name}
           onEndTimer={handleEndTimer}
         ></TimeInterval>
       )}
@@ -320,7 +303,7 @@ const WaterPointsPage = () => {
                       Status:{' '}
                       <span
                         style={{
-                          color: waterPoints[pointName].status
+                          color: waterPoints[pointName].data.status
                             ? 'lightgreen'
                             : 'lightcoral',
                           fontWeight: 'bold',
@@ -358,9 +341,11 @@ const WaterPointsPage = () => {
                 <span>Add new point</span>
               </AddPointListItem>
             </List>
-            {schedulesPoints && (
+            {waterPoints && (
               <Schedules
-                schedulePoints={schedulesPoints}
+                schedulePoints={Object.values(waterPoints).map((point) => ({
+                  ...point.schedule,
+                }))}
                 changeDate={handleChangeDate}
                 startNow={handleStartNow}
               ></Schedules>
@@ -371,11 +356,21 @@ const WaterPointsPage = () => {
             onRequestClose={closeModal}
             contentLabel="Water Point Modal"
             ariaHideApp={false}
+            style={{
+              content: {
+                width: '600px',
+                margin: 'auto',
+              },
+            }}
           >
             <ModalContent>
-              <h2>{selectedPoint ? selectedPoint.name : 'New Point'}</h2>
+              <h2>{selectedPoint ? selectedPoint.data.name : 'New Point'}</h2>
               {selectedPoint ? (
-                <WaterIntakeAutomation pointName={selectedPoint.name} />
+                <WaterIntakeAutomation
+                  waterPoint={waterPoints[selectedPoint.data.name]}
+                  fetchWaterData={fetchWaterPoints}
+                  updatePoint={api.updatePoint}
+                />
               ) : (
                 <div>
                   <label>

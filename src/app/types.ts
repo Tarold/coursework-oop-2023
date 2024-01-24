@@ -24,14 +24,19 @@ interface BiologicalIndicators {
 
 export interface WaterData {
   chemicalIndicators: ChemicalIndicators;
-  physicalIndicators: PhysicalIndicators;
   biologicalIndicators: BiologicalIndicators;
 }
 export interface WaterIntakePoint {
   name: string;
   data?: WaterData;
-  lastWaterIntake: Date | undefined;
   status: boolean;
 }
 
+export type WaterPoint = {
+  data: WaterIntakePoint;
+  schedule: Schedule;
+};
+
 export type Schedule = { name: string; date: Date; interval: number };
+
+export type WaterIntakePoints = Record<string, WaterPoint>;

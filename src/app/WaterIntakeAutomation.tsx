@@ -1,28 +1,84 @@
 'use client';
-import { api } from '@/api/api';
+import styled from 'styled-components';
 import React, { useState, useEffect } from 'react';
-import { WaterData } from './types';
+import { Schedule, WaterIntakePoint, WaterPoint } from './types';
 
-const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
-  const [waterData, setWaterData] = useState<WaterData>();
-  const [isIntakeOpen, setIsIntakeOpen] = useState(false);
+const Container = styled.div`
+  padding: 20px;
+  background-color: #f4f4f4;
+  border-radius: 8px;
+  margin: 10px;
+`;
+
+const StatusText = styled.p<{ isOpen: boolean }>`
+  font-size: 18px;
+  color: ${(props) => (props.isOpen ? 'green' : 'red')};
+`;
+const Button = styled.button`
+  background-color: #4caf50;
+  color: white;
+  padding: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+  margin-top: 10px;
+`;
+
+const MessageContainer = styled.div`
+  margin-top: 20px;
+`;
+
+const ProcessingMessage = styled.div`
+  background-color: #ffd700;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 4px;
+`;
+
+const VisualizationContainer = styled.div`
+  margin-top: 20px;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+`;
+
+const IndicatorTitle = styled.h2`
+  color: #333;
+  margin-bottom: 10px;
+`;
+
+const IndicatorList = styled.ul`
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+`;
+
+const IndicatorItem = styled.li`
+  margin-bottom: 8px;
+`;
+
+const Value = styled.span`
+  font-weight: bold;
+`;
+
+const WaterIntakeAutomation = ({
+  waterPoint,
+  fetchWaterData,
+  updatePoint,
+}: {
+  waterPoint: WaterPoint;
+  fetchWaterData: (a: string) => void;
+  updatePoint: (
+    pointName: string,
+    updates: {
+      data?: Partial<WaterIntakePoint> | undefined;
+      schedule?: Partial<Schedule> | undefined;
+    }
+  ) => void;
+}) => {
   const [isDone, setIsDone] = useState(true);
 
-  const fetchWaterData = async () => {
-    const data = await api.getData(pointName);
-    setWaterData(data);
-  };
-
-  const fetchIntakeStatus = async () => {
-    const data = await api.getStatus(pointName);
-    setIsIntakeOpen(data);
-  };
-
-  useEffect(() => {
-    fetchWaterData();
-    fetchIntakeStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   useEffect(() => {
     let timer: NodeJS.Timeout;
     const setNewTimeout = () => {
@@ -32,10 +88,11 @@ const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
 
       return timeoutId;
     };
-    if (isIntakeOpen) {
+
+    if (waterPoint.data?.status) {
       setIsDone(false);
     }
-    if (!isIntakeOpen) {
+    if (!waterPoint.data?.status) {
       setIsDone(false);
       timer = setNewTimeout();
     }
@@ -43,98 +100,122 @@ const WaterIntakeAutomation = ({ pointName }: { pointName: string }) => {
     return () => {
       clearTimeout(timer), setIsDone(true);
     };
-  }, [isIntakeOpen]);
-  const toggleIntake = async () => {
-    const newIntakeStatus = !isIntakeOpen;
-    const data = await api.setStatus(pointName, newIntakeStatus);
-    if (data === undefined) return;
-    if (!data) fetchWaterData();
+  }, [waterPoint.data.status]);
 
-    setIsIntakeOpen(data);
+  const toggleIntake = async () => {
+    updatePoint(waterPoint.data.name, {
+      data: {
+        status: !waterPoint.data.status,
+      },
+    });
+    fetchWaterData('9');
   };
 
+  const isIntakeOpen = waterPoint.data.status;
+  const waterData = waterPoint.data.data;
+
   return (
-    <div>
-      <p>Статус водозабору: {isIntakeOpen ? 'Триває' : 'Простоює'}</p>
-      <button onClick={toggleIntake}>
+    <Container>
+      <StatusText isOpen={isIntakeOpen}>
+        Статус водозабору: {isIntakeOpen ? 'Триває' : 'Простоює'}
+      </StatusText>
+      <Button onClick={toggleIntake}>
         {isIntakeOpen ? 'Припинити водозабір' : 'Почати водозабір'}
-      </button>
+      </Button>
 
-      {waterData === undefined && isIntakeOpen === false && (
-        <p>Данних ще немає...</p>
+      {waterPoint === undefined && isIntakeOpen === false && (
+        <MessageContainer>
+          <p>Данних ще немає...</p>
+        </MessageContainer>
       )}
-      {isIntakeOpen === true && <p>Триває водозабір...</p>}
-      {waterData !== undefined && isIntakeOpen === false && !isDone && (
-        <div>Оброблює данні</div>
+      {isIntakeOpen === true && (
+        <MessageContainer>
+          <p>Триває водозабір...</p>
+        </MessageContainer>
       )}
-      {waterData !== undefined && isIntakeOpen === false && isDone && (
-        <div className="visualization">
-          <h2>Хімічні Показники</h2>
-          <ul>
-            <li>
-              Жорсткість води:{' '}
-              {waterData.chemicalIndicators.waterHardness.toFixed(2)} (мг/л)
-            </li>
-            <li>
-              Мінералізація води:{' '}
-              {waterData.chemicalIndicators.waterMineralization.toFixed(2)}{' '}
-              (мг/л)
-            </li>
-            <li>
-              Вміст органічних речовин:{' '}
-              {waterData.chemicalIndicators.organicContent.toFixed(2)} (мг/л)
-            </li>
-            <li>
-              Вміст мікроелементів:{' '}
-              {waterData.chemicalIndicators.microelementsContent.toFixed(2)}{' '}
-              (мг/л)
-            </li>
-            <li>
-              Вміст важких металів:{' '}
-              {waterData.chemicalIndicators.heavyMetalsContent.toFixed(2)}{' '}
-              (мг/л)
-            </li>
-            <li>
-              Вміст забруднюючих речовин:{' '}
-              {waterData.chemicalIndicators.pollutantsContent.toFixed(2)} (мг/л)
-            </li>
-          </ul>
+      {waterPoint !== undefined && isIntakeOpen === false && !isDone && (
+        <ProcessingMessage>Оброблює данні</ProcessingMessage>
+      )}
+      {waterPoint !== undefined &&
+        isIntakeOpen === false &&
+        waterData &&
+        isDone && (
+          <div className="visualization">
+            <IndicatorTitle>Хімічні Показники</IndicatorTitle>
+            <IndicatorList>
+              <IndicatorItem>
+                Жорсткість води:{' '}
+                <Value>
+                  {waterData.chemicalIndicators.waterHardness.toFixed(2)}
+                </Value>{' '}
+                (мг/л)
+              </IndicatorItem>
+              <IndicatorItem>
+                Мінералізація води:{' '}
+                <Value>
+                  {waterData.chemicalIndicators.waterMineralization.toFixed(2)}
+                </Value>{' '}
+                (мг/л)
+              </IndicatorItem>
+              <IndicatorItem>
+                Вміст органічних речовин:{' '}
+                <Value>
+                  {waterData.chemicalIndicators.organicContent.toFixed(2)}
+                </Value>{' '}
+                (мг/л)
+              </IndicatorItem>
+              <IndicatorItem>
+                Вміст мікроелементів:{' '}
+                <Value>
+                  {waterData.chemicalIndicators.microelementsContent.toFixed(2)}
+                </Value>{' '}
+                (мг/л)
+              </IndicatorItem>
+              <IndicatorItem>
+                Вміст важких металів:{' '}
+                <Value>
+                  {waterData.chemicalIndicators.heavyMetalsContent.toFixed(2)}
+                </Value>{' '}
+                (мг/л)
+              </IndicatorItem>
+              <IndicatorItem>
+                Вміст забруднюючих речовин:{' '}
+                <Value>
+                  {waterData.chemicalIndicators.pollutantsContent.toFixed(2)}
+                </Value>{' '}
+                (мг/л)
+              </IndicatorItem>
+            </IndicatorList>
 
-          <h2>Фізичні Показники</h2>
-          <ul>
-            <li>
-              Температура води:{' '}
-              {waterData.physicalIndicators.waterTemperature.toFixed(2)} (°C)
-            </li>
-            <li>
-              Прозорість води:{' '}
-              {waterData.physicalIndicators.waterTransparency.toFixed(2)}{' '}
-              (одиниці відносності)
-            </li>
-            <li>Колір води: {waterData.physicalIndicators.waterColor}</li>
-            <li>Запах води: {waterData.physicalIndicators.waterOdor}</li>
-            <li>Смак води: {waterData.physicalIndicators.waterTaste}</li>
-          </ul>
-
-          <h2>Біологічні Показники</h2>
-          <ul>
-            <li>
-              Вміст мікроорганізмів:{' '}
-              {waterData.biologicalIndicators.microorganismsContent.toFixed(2)}{' '}
-              (шт/мл)
-            </li>
-            <li>
-              Вміст планктону:{' '}
-              {waterData.biologicalIndicators.planktonContent.toFixed(2)} (мг/л)
-            </li>
-            <li>
-              Вміст бентосу:{' '}
-              {waterData.biologicalIndicators.benthosContent.toFixed(2)} (мг/л)
-            </li>
-          </ul>
-        </div>
-      )}
-    </div>
+            <IndicatorTitle>Біологічні Показники</IndicatorTitle>
+            <IndicatorList>
+              <IndicatorItem>
+                Вміст мікроорганізмів:{' '}
+                <Value>
+                  {waterData.biologicalIndicators.microorganismsContent.toFixed(
+                    2
+                  )}
+                </Value>{' '}
+                (шт/мл)
+              </IndicatorItem>
+              <IndicatorItem>
+                Вміст планктону:{' '}
+                <Value>
+                  {waterData.biologicalIndicators.planktonContent.toFixed(2)}
+                </Value>{' '}
+                (мг/л)
+              </IndicatorItem>
+              <IndicatorItem>
+                Вміст бентосу:{' '}
+                <Value>
+                  {waterData.biologicalIndicators.benthosContent.toFixed(2)}
+                </Value>{' '}
+                (мг/л)
+              </IndicatorItem>
+            </IndicatorList>
+          </div>
+        )}
+    </Container>
   );
 };
 
